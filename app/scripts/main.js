@@ -18,6 +18,7 @@
 */
 
 /* eslint-env browser, es6 */
+/* https://developers.google.com/web/fundamentals/codelabs/push-notifications/ */
 
 'use strict';
 
@@ -26,6 +27,7 @@ const pushButton = document.querySelector('.js-push-btn');
 
 let isSubscribed = false;
 let swRegistration = null;
+
 
 function urlB64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -42,7 +44,7 @@ function urlB64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// Register our Service Worker.d
+// Register our Service Worker.
 if ('serviceWorker' in navigator && 'PushManager' in window) {
   console.log('Service Worker and Push is supported');
 
@@ -71,7 +73,7 @@ function initializeUI() {
     pushButton.disabled = true;
 
     if (isSubscribed) {
-      // TODO: Unsubscribe user
+      unsubscribeUser();
     } else {
       subscribeUser();
     }
@@ -101,6 +103,7 @@ function updateBtn() {
     pushButton.textContent = 'Push Messaging Blocked.';
     pushButton.disabled = true;
     updateSubscriptionOnServer(null);
+
     return;
   }
 
@@ -121,6 +124,7 @@ function updateBtn() {
  */
 function subscribeUser() {
   const applicationServerKey = urlB64ToUint8Array(applicationServerPublicKey);
+  
   swRegistration.pushManager.subscribe({
     userVisibleOnly: true, // show a notification every time a push is sent
     applicationServerKey: applicationServerKey
@@ -155,27 +159,22 @@ function updateSubscriptionOnServer(subscription) {
   }
 }
 
-/*
- When we trigger a push message, the browser receives the push message,
- figures out what service worker the push is for before waking up that 
- service worker and dispatching a push event. We need to listen for this 
- event and show a notification as a result.
- self === service worker
- */
- self.addEventListener('push', function(event) {
-  console.log('[Service Worker] Push Received.');
-  console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
+function unsubscribeUser() {
+  swRegistration.pushManager.getSubscription()
+  .then(function(subscription) {
+    if (subscription) {
+      return subscription.unsubscribe();
+    }
+  })
+  .catch(function(error) {
+    console.log('Error unsubscribing', error);
+  })
+  .then(function() {
+    updateSubscriptionOnServer(null);
 
-  const title = 'Push Codelab';
-  const options = {
-    body: 'Yay it works.',
-    icon: 'images/icon.png',
-    badge: 'images/badge.png'
-  };
+    console.log('User is unsubscribed.');
+    isSubscribed = false;
 
-  // waitUntil method takes a promise and the browser will keep your service worker alive and running until the promise passed in has resolved.
-  //event.waitUntil(self.registration.showNotification(title, options));
-  // or re-write like this for better readibility.
-  const notificationPromise = self.registration.showNotification(title, options);
-  event.waitUntil(notificationPromise);
-});
+    updateBtn();
+  });
+}
